@@ -1,4 +1,3 @@
-#ver4: 入力を3つのスペクトログラム 
 import time
 import pprint
 import sys
@@ -10,7 +9,7 @@ sys.path.append('../')
 from model.DataProvider import DataProvider
 from model.EarlyStopping import EarlyStopping
 from model.NetSaver import NetSaver
-from model.MRUNet_ver4 import MRUNet_ver4
+from model.mini_UNet import mini_UNet
 from model import Loss
 from model import Trainer
 from model.DataArgument import DataArgument
@@ -41,23 +40,9 @@ class Train():
                         "frame_step":  256,
                         "fft_length": 1024,
                         "pad_end": False
-                 }
-                self.mr1_stft_params = {
-                    "frame_length": 512,
-                    "frame_step": 128,
-                    "fft_length": 512,
-                    "pad_end": False
-                 }
-                
-                self.mr2_stft_params = {
-                    "frame_length": 2048,
-                    "frame_step": 512,
-                    "fft_length": 2048,
-                    "pad_end": False
-                 }
-                
+                }
                 self.epsilon = 1e-4
-            
+                
         def __model(self, tf_mix, tf_target, tf_lr):
                  # define model flow
                 # stft
@@ -69,67 +54,29 @@ class Train():
                         pad_end = self.stft_params["pad_end"]
                 )
                 
-                mr1_stft_module = STFT_Module(
-                        frame_length = self.mr1_stft_params["frame_length"], 
-                        frame_step= self.mr1_stft_params["frame_step"], 
-                        fft_length = self.mr1_stft_params["fft_length"],
-                        epsilon = self.epsilon,
-                        pad_end = self.mr1_stft_params["pad_end"]
-                )
-                
-                mr2_stft_module = STFT_Module(
-                        frame_length = self.mr2_stft_params["frame_length"], 
-                        frame_step= self.mr2_stft_params["frame_step"], 
-                        fft_length = self.mr2_stft_params["fft_length"],
-                        epsilon = self.epsilon,
-                        pad_end = self.mr2_stft_params["pad_end"]
-                )
-                
                 
                 # mix data transform
                 tf_spec_mix = stft_module.STFT(tf_mix)
+                
+#             tf_mag_spec_mix = stft_module.to_magnitude_spec(tf_spec_mix, normalize=False)
                 tf_amp_spec_mix = stft_module.to_amp_spec(tf_spec_mix, normalize =False)
                 tf_mag_spec_mix = tf.log(tf_amp_spec_mix + self.epsilon)
                 tf_mag_spec_mix = tf.expand_dims(tf_mag_spec_mix, -1)# (Batch, Time, Freq, Channel))
                 tf_amp_spec_mix = tf.expand_dims(tf_amp_spec_mix, -1)
                 tf_f_512_mag_spec_mix = stft_module.to_F_512(tf_mag_spec_mix)
                 
-                 #mr1 mix data transform
-                tf_mr1_spec_mix = mr1_stft_module.STFT(tf_mix)
-                tf_mr1_spec_mix = tf_mr1_spec_mix[:, 1:513, :]
-                tf_mr1_amp_spec_mix = stft_module.to_amp_spec(tf_mr1_spec_mix, normalize =False)
-                tf_mr1_mag_spec_mix = tf.log(tf_mr1_amp_spec_mix + self.epsilon)
-                tf_mr1_mag_spec_mix = tf.expand_dims(tf_mr1_mag_spec_mix, -1)# (Batch, Time, Freq, Channel))
-                tf_mr1_f_256_mag_spec_mix = tf_mr1_mag_spec_mix[:, :, :256,:]
-                
-                #mr2 mix data transform
-                #zero pad to fit stft time length 128
-                mr2_zero_pad = tf.zeros_like(tf_mix)
-                tf_mr2_mix = tf.concat([mr2_zero_pad[:,:384], tf_mix, mr2_zero_pad[:,:384]], axis=1)
-                tf_mr2_spec_mix = mr2_stft_module.STFT(tf_mr2_mix)
-                tf_mr2_amp_spec_mix = stft_module.to_amp_spec(tf_mr2_spec_mix, normalize =False)
-                tf_mr2_mag_spec_mix = tf.log(tf_mr2_amp_spec_mix + self.epsilon)
-                tf_mr2_mag_spec_mix = tf.expand_dims(tf_mr2_mag_spec_mix, -1)
-                tf_mr2_mag_spec_mix = tf_mr2_mag_spec_mix[:, : ,:1024,:]
-            
                 # target data transform
-                tf_spec_target = stft_module.STFT(tf_target)
+                tf_spec_target = stft_module.STFT(tf_target)             
                 tf_amp_spec_target = stft_module.to_amp_spec(tf_spec_target, normalize=False)
                 tf_amp_spec_target = tf.expand_dims(tf_amp_spec_target, -1)
                  
-                mr_u_net_ver4 = MRUNet_ver4(
-                        input_shape = (
+                mini_u_net = mini_UNet(
+                        input_shape =(
                                 tf_f_512_mag_spec_mix.shape[1:]
-                        ),
-                        mr1_input_shape = (
-                               tf_mr1_f_256_mag_spec_mix.shape[1:]
-                        ),
-                        mr2_input_shape = (
-                              tf_mr2_mag_spec_mix.shape[1:]
                         )
                 )
             
-                tf_est_masks = mr_u_net_ver4(tf_f_512_mag_spec_mix, tf_mr1_f_256_mag_spec_mix, tf_mr2_mag_spec_mix)
+                tf_est_masks, _, _, _, _, _ = mini_u_net(tf_f_512_mag_spec_mix)
                 
                 #F: 512  → 513
                 zero_pad = tf.zeros_like(tf_mag_spec_mix)
@@ -160,15 +107,15 @@ class Train():
                 # GPU config
                 config = tf.ConfigProto(
                         gpu_options=tf.GPUOptions(
-                                visible_device_list='1', # specify GPU number
-                                allow_growth =  True
+                                visible_device_list='0', # specify GPU number
+                                allow_growth = True
                         )
                 )
                 with tf.Session(config = config) as sess:
                         init = tf.global_variables_initializer()  
                         sess.run(init)
                         print("Start Training")
-                        net_saver = NetSaver(saver_folder_name='MRUNet_ver4',  saver_file_name='mr_u_net_ver4')
+                        net_saver = NetSaver(saver_folder_name='mini-U-Net',  saver_file_name='mini-U-Net')
                         early_stopping = EarlyStopping()
                         for epoch in range(self.epoch_num):
                                 sys.stdout.flush()
@@ -232,32 +179,31 @@ class Train():
                             
                                 vmin = -70
                                 vmax = 0
-                                est_spec, target_spec, mag_mix_spec, ori_spec_mix, est_mask = sess.run([tf_est_spec, tf_target_spec, tf_mag_mix_spec , tf_ori_mix_spec, tf_est_masks], feed_dict ={
+                                target_spec, mag_mix_spec, ori_spec_mix, est_mask, est_spec = sess.run([tf_target_spec, tf_mag_mix_spec , tf_ori_mix_spec, tf_est_masks, tf_est_spec], feed_dict ={
                                     tf_mix: train_mixed_array[0:1, :self.sample_len],
                                     tf_target: train_target_array[0:1, :self.sample_len],
                                     tf_lr: 0.
                                 })
                     
-                                est_spec = np.squeeze(est_spec, axis=-1)
+                                est_mask = np.squeeze(est_mask, axis=-1)
                                 target_spec = np.squeeze(target_spec, axis=-1)
                                 mag_mix_spec = np.squeeze(mag_mix_spec, axis=-1)
-                                est_mask = np.squeeze(est_mask, axis=-1)
+                                est_spec = np.squeeze(est_spec, axis=-1)
                                 print("original spec mix")
                                 visualize_spec.plot_spec(ori_spec_mix[0], self.fs, self.sec, vmax, vmin)
                                 print("magnitude spec mix")
                                 visualize_spec.plot_log_spec(mag_mix_spec[0], self.fs, self.sec, 10, -10)
                                 print("target spec")
                                 visualize_spec.plot_spec(target_spec[0], self.fs, self.sec, vmax, vmin)
+                                print("est mask")
+                                visualize_spec.plot_log_spec(est_mask[0], self.fs, self.sec,  1, 0)
                                 print("est spec")
                                 visualize_spec.plot_spec(est_spec[0], self.fs, self.sec,  vmax, vmin)
-                                print("est mask")
-                                visualize_spec.plot_log_spec(est_mask[0], self.fs, self.sec, 1, 0)
                 
                                 visualize_loss.plot_loss(self.valid_loss_list)
                                 end = time.time()
                                 print(' excute time', end - start)
-                                if epoch%9 ==  0:
-                                    net_saver(sess, step=epoch)
+                        net_saver(sess, step=epoch)
                         
 
 if __name__ == '__main__':
