@@ -34,12 +34,12 @@ class mini_UNet():
             self.deconv3  = Conv2DTranspose(1, self.kernel_size, self.stride, padding='same')
             self.deBnorm3 = BatchNormalization()
 
-    def __call__(self, tf_X):
-        mr_h1 = LeakyReLU(alpha=self.leakiness)(self.mr_Bnorm1(self.mr_conv1(tf_mr_X)))
-        print("mr_h1", mr_h1.shape)
+    def __call__(self, tf_X, tf_mr1_X):
+        mr1_h1 = LeakyReLU(alpha=self.leakiness)(self.mr1_Bnorm1(self.mr1_conv1(tf_mr1_X)))
+        print("mr_h1", mr1_h1.shape)
         h1 = LeakyReLU(alpha = self.leakiness)(self.Bnorm1(self.conv1(tf_X)))
         print(h1.shape)
-         h2 = LeakyReLU(alpha = self.leakiness)(self.Bnorm2(self.conv2(concatenate([h1, mr_h1]))))
+        h2 = LeakyReLU(alpha = self.leakiness)(self.Bnorm2(self.conv2(concatenate([h1, mr1_h1]))))
         print(h2.shape)
         h3 = LeakyReLU(alpha = self.leakiness)(self.Bnorm3(self.conv3(h2)))
         print(h3.shape)
