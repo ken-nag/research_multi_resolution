@@ -48,7 +48,7 @@ class Train():
                     "fft_length": 512,
                     "pad_end": False
                  }
-                 self.mr2_stft_params = {
+                self.mr2_stft_params = {
                     "frame_length": 2048,
                     "frame_step": 512,
                     "fft_length": 2048,
@@ -157,7 +157,7 @@ class Train():
                 # GPU config
                 config = tf.ConfigProto(
                         gpu_options=tf.GPUOptions(
-                                visible_device_list='0', # specify GPU number
+                                visible_device_list='1', # specify GPU number
                                 allow_growth = True
                         )
                 )

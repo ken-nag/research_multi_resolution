@@ -3,7 +3,7 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Conv2D, Conv2DTranspose,BatchNormalization, Dropout, LeakyReLU, ReLU, concatenate, Input
 from tensorflow.keras.activations import sigmoid
-class mini_UNet_ver2():
+class mini_UNet_ver3():
     def __init__(self, input_shape, mr1_input_shape, mr2_input_shape):
         with tf.variable_scope("U-Net"):
             self.kernel_size  = (5,5) # (5,5)
