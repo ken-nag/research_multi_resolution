@@ -32,11 +32,11 @@ class mini_UNet():
         print(h2.shape)
         h3 = LeakyReLU(alpha = self.leakiness)(self.Bnorm3(self.conv3(h2)))
         print(h3.shape)
-        dh1 = ReLU()(self.Dropout1(self.deBnorm1(self.deconv1(h6))))
+        dh1 = ReLU()(self.Dropout1(self.deBnorm1(self.deconv1(h3))))
         print(dh1.shape)
-        dh2 = ReLU()(self.deBnorm2(self.deconv2(concatenate([dh1, h5]))))
+        dh2 = ReLU()(self.deBnorm2(self.deconv2(concatenate([dh1, h2]))))
         print(dh2.shape)
-        dh3 = ReLU()(self.deBnorm3(self.deconv3(concatenate([dh2, h4]))))
+        dh3 = ReLU()(self.deBnorm3(self.deconv3(concatenate([dh2, h1]))))
         print(dh3.shape)
 
         return dh3, h1, h2, h3, dh1, dh2

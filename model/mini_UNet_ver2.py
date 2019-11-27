@@ -3,8 +3,8 @@
 import tensorflow as tf
 from tensorflow.keras.layers import Conv2D, Conv2DTranspose,BatchNormalization, Dropout, LeakyReLU, ReLU, concatenate, Input
 from tensorflow.keras.activations import sigmoid
-class mini_UNet():
-    def __init__(self, input_shape):
+class mini_UNet_ver2():
+    def __init__(self, input_shape, mr1_input_shape):
         with tf.variable_scope("U-Net"):
             self.kernel_size  = (5,5) # (5,5)
             self.stride       = (2,2)
@@ -13,13 +13,11 @@ class mini_UNet():
             # stride for mr1
             self.t_mr1_stride = (2,1)
             self.f_mr1_stride = (1,2)
-            # stride for mr2
-            self.f_mr2_stride = (1,8)
             #mr1: t 512 to 256
             self.mr1_conv1 = Conv2D(4, self.kernel_size, self.t_mr1_stride, input_shape=mr1_input_shape, padding='same')
             self.mr1_Bnorm1 = BatchNormalization()
             # endcoder
-            self.conv1  = Conv2D(4, self.kernel_size, self.stride, input_shape=input_shape, padding='same')
+            self.conv1  = Conv2D(4, self.kernel_size, self.f_mr1_stride, input_shape=input_shape, padding='same')
             self.Bnorm1 = BatchNormalization()
             self.conv2  = Conv2D(16, self.kernel_size, self.stride, padding='same')
             self.Bnorm2 = BatchNormalization()
@@ -31,7 +29,7 @@ class mini_UNet():
             self.Dropout1 = Dropout(rate = self.dropout_rate)
             self.deconv2  = Conv2DTranspose(8, self.kernel_size, self.stride, padding='same')
             self.deBnorm2 = BatchNormalization()
-            self.deconv3  = Conv2DTranspose(1, self.kernel_size, self.stride, padding='same')
+            self.deconv3  = Conv2DTranspose(1, self.kernel_size, self.f_mr1_stride, padding='same')
             self.deBnorm3 = BatchNormalization()
 
     def __call__(self, tf_X, tf_mr1_X):
@@ -43,11 +41,11 @@ class mini_UNet():
         print(h2.shape)
         h3 = LeakyReLU(alpha = self.leakiness)(self.Bnorm3(self.conv3(h2)))
         print(h3.shape)
-        dh1 = ReLU()(self.Dropout1(self.deBnorm1(self.deconv1(h6))))
+        dh1 = ReLU()(self.Dropout1(self.deBnorm1(self.deconv1(h3))))
         print(dh1.shape)
-        dh2 = ReLU()(self.deBnorm2(self.deconv2(concatenate([dh1, h5]))))
+        dh2 = ReLU()(self.deBnorm2(self.deconv2(concatenate([dh1, h2]))))
         print(dh2.shape)
-        dh3 = ReLU()(self.deBnorm3(self.deconv3(concatenate([dh2, h4]))))
+        dh3 = ReLU()(self.deBnorm3(self.deconv3(concatenate([dh2, h1]))))
         print(dh3.shape)
 
         return dh3, h1, h2, h3, dh1, dh2
