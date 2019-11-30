@@ -115,7 +115,7 @@ class Train():
                         init = tf.global_variables_initializer()  
                         sess.run(init)
                         print("Start Training")
-                        net_saver = NetSaver(saver_folder_name='UNet_ver3',  saver_file_name='u_net_ver3')
+                        net_saver = NetSaver(saver_folder_name='UNet_other_sources_bass',  saver_file_name='u_net_bass')
                         early_stopping = EarlyStopping()
                         for epoch in range(self.epoch_num):
                                 sys.stdout.flush()
