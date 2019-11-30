@@ -63,13 +63,13 @@ class Test():
                 tf_spec_mix = stft_module.to_T_256(tf_spec_mix) # cut time dimension to 256 for u-net architecture
                 tf_phase_mix = tf.sign(tf_spec_mix)
                 tf_phase_mix = self.expand_channel(tf_phase_mix)
-
+                
                 tf_amp_spec_mix = stft_module.to_amp_spec(tf_spec_mix, normalize =False)
                 tf_mag_spec_mix = tf.log(tf_amp_spec_mix + self.epsilon)
                 tf_mag_spec_mix = tf.expand_dims(tf_mag_spec_mix, -1)# (Batch, Time, Freq, Channel))
                 tf_amp_spec_mix = tf.expand_dims(tf_amp_spec_mix, -1)
                 tf_f_512_mag_spec_mix = stft_module.to_F_512(tf_mag_spec_mix)
-                                 
+                
                 mini_u_net = mini_UNet(
                         input_shape =(
                                 tf_f_512_mag_spec_mix.shape[1:]
@@ -99,14 +99,14 @@ class Test():
                 # GPU config
                 config = tf.ConfigProto(
                         gpu_options=tf.GPUOptions(
-                                visible_device_list=None, # specify GPU number
+                                visible_device_list='0', # specify GPU number
                                 allow_growth = True
                         )
                 )
                 
                 saver = tf.train.import_meta_graph('./../results/model/mini-U-Net/mimi_U_Net_1999.ckpt.meta')
                 with tf.Session(config = config) as sess:
-                        saver.restore(sess, './../results/model/mini-U-Net/mini_U_Net_1999.ckpt')
+                        saver.restore(sess, './../results/model/mini-U-Net_ver3/mini_U_Net_1999.ckpt')
                         
                         test_mixed_list = []
                         for bass, drums, other, vocals in zip(test_bass_list, test_drums_list, test_other_list, test_vocals_list):
@@ -164,12 +164,9 @@ class Test():
                         print('evaluate time', evaluate_end - evaluate_start)
                 return self.est_audio_list,  test_target_list, test_mixed_list
                 
-                        
-                            
-
 if __name__ == '__main__':
     test = Test()
     est_list, target_list, mixed_list = test()
     file_path = './../results/audio/UNet/singing_voice_separation/'
-    #AudioModule.to_pickle(est_list, file_path + 'est_list')
+     #AudioModule.to_pickle(est_list, file_path + 'est_list')
    
