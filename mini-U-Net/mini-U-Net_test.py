@@ -76,7 +76,7 @@ class Test():
                         )
                 )
             
-                tf_est_masks = mini_u_net(tf_f_512_mag_spec_mix)
+                tf_est_masks,_,_,_,_,_ = mini_u_net(tf_f_512_mag_spec_mix)
                 
                 #F: 512  → 513
                 zero_pad = tf.zeros_like(tf_mag_spec_mix)
@@ -104,9 +104,9 @@ class Test():
                         )
                 )
                 
-                saver = tf.train.import_meta_graph('./../results/model/mini-U-Net/mimi_U_Net_1999.ckpt.meta')
+                saver = tf.train.import_meta_graph('./../results/model/mini-U-Net/mini-U-Net_1999.ckpt.meta')
                 with tf.Session(config = config) as sess:
-                        saver.restore(sess, './../results/model/mini-U-Net_ver3/mini_U_Net_1999.ckpt')
+                        saver.restore(sess, './../results/model/mini-U-Net/mini-U-Net_1999.ckpt')
                         
                         test_mixed_list = []
                         for bass, drums, other, vocals in zip(test_bass_list, test_drums_list, test_other_list, test_vocals_list):
