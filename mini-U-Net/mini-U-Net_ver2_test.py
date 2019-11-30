@@ -94,7 +94,7 @@ class Test():
                         input_shape = (
                                 tf_f_512_mag_spec_mix.shape[1:]
                         ),
-                        mr_input_shape = (
+                        mr1_input_shape = (
                                tf_mr_f_256_mag_spec_mix.shape[1:]
                         )
                 )
@@ -127,7 +127,7 @@ class Test():
                         )
                 )
                 
-                saver = tf.train.import_meta_graph('./../results/model/mini-U-Net_ver2/mimi-U-Net_ver2_1999.ckpt.meta')
+                saver = tf.train.import_meta_graph('./../results/model/mini-U-Net_ver2/mini-U-Net_ver2_1999.ckpt.meta')
                 with tf.Session(config = config) as sess:
                         saver.restore(sess, './../results/model/mini-U-Net_ver2/mini-U-Net_ver2_1999.ckpt')
                         
