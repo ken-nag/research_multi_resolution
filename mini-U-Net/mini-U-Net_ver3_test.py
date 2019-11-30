@@ -157,7 +157,7 @@ class Test():
                         )
                 )
                 
-                saver = tf.train.import_meta_graph('./../results/model/mini-U-Net_ver3/mimi-U-Net_ver3_1999.ckpt.meta')
+                saver = tf.train.import_meta_graph('./../results/model/mini-U-Net_ver3/mini-U-Net_ver3_1999.ckpt.meta')
                 with tf.Session(config = config) as sess:
                         saver.restore(sess, './../results/model/mini-U-Net_ver3/mini-U-Net_ver3_1999.ckpt')
                         
