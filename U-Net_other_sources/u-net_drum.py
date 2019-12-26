@@ -107,7 +107,7 @@ class Train():
                 # GPU config
                 config = tf.ConfigProto(
                         gpu_options=tf.GPUOptions(
-                                visible_device_list='0', # specify GPU number
+                                visible_device_list='1', # specify GPU number
                                 allow_growth = True
                         )
                 )
