@@ -4,6 +4,7 @@ from scipy.io import wavfile
 import IPython.display
 import librosa
 import numpy as np
+import pickle
 
 def read(filename, fs):
       data, fs = librosa.load(filename, fs)
@@ -16,7 +17,7 @@ def read_as_mono(filename, fs):
 def write(filename, x, fs):
       librosa.output.write_wav(filename, x, fs)
         
-def to_pickle(self, data, file_name):
+def to_pickle(data, file_name):
       with open(file_name,  mode='wb') as f:
               pickle.dump(data, f, protocol=pickle.HIGEST_PROTOCOL)
 

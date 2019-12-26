@@ -10,7 +10,7 @@ sys.path.append('../')
 from model.DataProvider import DataProvider
 from model.EarlyStopping import EarlyStopping
 from model.NetSaver import NetSaver
-from model.MRUNet.MRUNet import MRUNet
+from model.Conv_FFN.conv_ffn import Conv_FFN
 from model import Loss
 from model import Trainer
 from model.DataArgument import DataArgument
@@ -36,12 +36,6 @@ class Test():
                         "fft_length": 1024,
                         "pad_end": False
                 }
-                self.mr_stft_params = {
-                    "frame_length": 512,
-                    "frame_step": 128,
-                    "fft_length": 512,
-                    "pad_end": False
-                }
                 self.est_audio_list = []
                 self.sdr_list = []
                 self.sir_list = []
@@ -59,48 +53,39 @@ class Test():
                         frame_length = self.stft_params["frame_length"], 
                         frame_step= self.stft_params["frame_step"], 
                         fft_length = self.stft_params["fft_length"],
-                        epsilon = self.epsilon,
-                        pad_end = self.stft_params["pad_end"]
+                        pad_end = self.stft_params["pad_end"],
+                        epsilon = self.epsilon
                 )
-                
-                mr_stft_module = STFT_Module(
-                        frame_length = self.mr_stft_params["frame_length"], 
-                        frame_step= self.mr_stft_params["frame_step"], 
-                        fft_length = self.mr_stft_params["fft_length"],
-                        epsilon = self.epsilon,
-                        pad_end = self.stft_params["pad_end"]
-                )
-                
                 
                 # mix data transform
                 tf_spec_mix = stft_module.STFT(tf_mix)
+                print("spec mix", tf_spec_mix.dtype)
+                tf_spec_mix = stft_module.to_T_256(tf_spec_mix) # cut time dimension to 256 for u-net architecture
                 tf_phase_mix = tf.sign(tf_spec_mix)
                 tf_phase_mix = self.expand_channel(tf_phase_mix)
+#             tf_mag_spec_mix = stft_module.to_magnitude_spec(tf_spec_mix, normalize=False)
                 tf_amp_spec_mix = stft_module.to_amp_spec(tf_spec_mix, normalize =False)
                 tf_mag_spec_mix = tf.log(tf_amp_spec_mix + self.epsilon)
                 tf_mag_spec_mix = tf.expand_dims(tf_mag_spec_mix, -1)# (Batch, Time, Freq, Channel))
                 tf_amp_spec_mix = tf.expand_dims(tf_amp_spec_mix, -1)
                 tf_f_512_mag_spec_mix = stft_module.to_F_512(tf_mag_spec_mix)
                 
-                 #mr mix data transform
-                tf_mr_spec_mix = mr_stft_module.STFT(tf_mix)
-                tf_mr_spec_mix = tf_mr_spec_mix[:, 1:513, :]
-                tf_mr_amp_spec_mix = stft_module.to_amp_spec(tf_mr_spec_mix, normalize =False)
-                tf_mr_mag_spec_mix = tf.log(tf_mr_amp_spec_mix + self.epsilon)
-                tf_mr_mag_spec_mix = tf.expand_dims(tf_mr_mag_spec_mix, -1)# (Batch, Time, Freq, Channel))
-                tf_mr_f_256_mag_spec_mix = tf_mr_mag_spec_mix[:, :, :256]
-                                 
-                mr_u_net = MRUNet(
-                        input_shape = (
+                # target data transform
+#                 tf_spec_target = stft_module.STFT(tf_target)
+#                 tf_spec_target = stft_module.to_T_256(tf_spec_target) # cut time dimensiton to 256 for u-net architecture
+                
+#                 tf_amp_spec_target = stft_module.to_amp_spec(tf_spec_target, normalize=False)
+#                 tf_amp_spec_target = tf.expand_dims(tf_amp_spec_target, -1)
+                 
+                conv_ffn = Conv_FFN(
+                        input_shape =(
                                 tf_f_512_mag_spec_mix.shape[1:]
                         ),
-                        mr_input_shape = (
-                               tf_mr_f_256_mag_spec_mix.shape[1:]
-                        )
-                )
+                        out_dim = 512,
+                        h_dim = 512,
+                 )
             
-                tf_est_masks = mr_u_net(tf_f_512_mag_spec_mix, tf_mr_f_256_mag_spec_mix)
-                
+                tf_est_masks = conv_ffn(tf_f_512_mag_spec_mix)
                 #F: 512  → 513
                 zero_pad = tf.zeros_like(tf_mag_spec_mix)
                 zero_pad = tf.expand_dims(zero_pad[:,:,1,:], -1)
@@ -116,20 +101,20 @@ class Test():
                 provider = DataProvider()
                 test_bass_list, test_drums_list, test_other_list, test_vocals_list = provider.load_all_test_data()
                 # define model
-                tf_mix = tf.placeholder(tf.float32, (None, self.sample_len)) #Batch, Sample
+                tf_mix = tf.placeholder(tf.float32, (1, self.sample_len)) #Batch, Sample
                 tf_est_source = self.__model(tf_mix)
                 
                 # GPU config
                 config = tf.ConfigProto(
                         gpu_options=tf.GPUOptions(
-                                visible_device_list=None, # specify GPU number
+                                visible_device_list='0', # specify GPU number
                                 allow_growth = True
                         )
                 )
                 
-                saver = tf.train.import_meta_graph('./../results/model/MRUNet/mr_u_net_1998.ckpt.meta')
+                saver = tf.train.import_meta_graph('./../results/model/Conv_FFN/conv_ffn_1999.ckpt.meta')
                 with tf.Session(config = config) as sess:
-                        saver.restore(sess, './../results/model/MRUNet/mr_u_net_1998.ckpt')
+                        saver.restore(sess, './../results/model/Conv_FFN/conv_ffn_1999.ckpt')
                         
                         test_mixed_list = []
                         for bass, drums, other, vocals in zip(test_bass_list, test_drums_list, test_other_list, test_vocals_list):
@@ -185,13 +170,11 @@ class Test():
                         
                         evaluate_end = time.time()
                         print('evaluate time', evaluate_end - evaluate_start)
-                return self.est_audio_list,  test_target_list, test_mixed_list
+                return self.est_audio_list,  test_target_list, test_mixed_list, self.sdr_list, self.sir_list, self.sar_list
                 
-                        
-                            
-
 if __name__ == '__main__':
     test = Test()
-    est_list, target_list, mixed_list = test()
-    file_path = './../results/audio/MRUNet/singing_voice_separation/'
-#    AudioModule.to_pickle(est_list, file_path + 'est_list')
+    est_list, target_list, mixed_list, sdr, sir, sar = test()
+    file_path = './../results/audio/UNet/singing_voice_separation/'
+     #AudioModule.to_pickle(est_list, file_path + 'est_list')
+   

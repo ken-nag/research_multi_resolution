@@ -5,12 +5,13 @@ import IPython
 import mir_eval
 import numpy as np
 import tensorflow as tf
+import scipy.io
 tf.reset_default_graph()
 sys.path.append('../')
 from model.DataProvider import DataProvider
 from model.EarlyStopping import EarlyStopping
 from model.NetSaver import NetSaver
-from model.MRUNet_ver2 import MRUNet_ver2
+from model.MRUNet.MRUNet_ver2 import MRUNet_ver2
 from model import Loss
 from model import Trainer
 from model.DataArgument import DataArgument
@@ -185,13 +186,16 @@ class Test():
                         
                         evaluate_end = time.time()
                         print('evaluate time', evaluate_end - evaluate_start)
-                return self.est_audio_list,  test_target_list, test_mixed_list
+                return self.est_audio_list,  test_target_list, test_mixed_list, self.sdr_list, self.sir_list, self.sar_list
                 
                         
                             
 
 if __name__ == '__main__':
     test = Test()
-    est_list, target_list, mixed_list = test()
+    est_list, target_list, mixed_list, sdr_list, sir_list, sar_list = test()
+    scipy.io.savemat("./../results/mat/u_net_2_sdr.mat", {'u_net_2_sdr_list':sdr_list})
+    scipy.io.savemat("./../results/mat/u_net_2_sir.mat", {'u_net_2_sir_list':sir_list})
+    scipy.io.savemat("./../results/mat/u_net_2_sar.mat", {'u_net_2_sar_list':sar_list})
     file_path = './../results/audio/MRUNet/singing_voice_separation/'
 #    AudioModule.to_pickle(est_list, file_path + 'est_list')

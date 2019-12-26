@@ -5,13 +5,12 @@ import IPython
 import mir_eval
 import numpy as np
 import tensorflow as tf
-import scipy.io
 tf.reset_default_graph()
 sys.path.append('../')
 from model.DataProvider import DataProvider
 from model.EarlyStopping import EarlyStopping
 from model.NetSaver import NetSaver
-from model.MRUNet.MRUNet_ver4 import MRUNet_ver4
+from model.MRUNet.MRUNet_ver5 import MRUNet_ver5
 from model import Loss
 from model import Trainer
 from model.DataArgument import DataArgument
@@ -37,12 +36,7 @@ class Test():
                         "fft_length": 1024,
                         "pad_end": False
                 }
-                self.mr1_stft_params = {
-                    "frame_length": 512,
-                    "frame_step": 128,
-                    "fft_length": 512,
-                    "pad_end": False
-                }
+
                 self.mr2_stft_params = {
                     "frame_length": 2048,
                     "frame_step": 512,
@@ -71,14 +65,6 @@ class Test():
                         pad_end = self.stft_params["pad_end"]
                 )
                 
-                mr1_stft_module = STFT_Module(
-                        frame_length = self.mr1_stft_params["frame_length"], 
-                        frame_step= self.mr1_stft_params["frame_step"], 
-                        fft_length = self.mr1_stft_params["fft_length"],
-                        epsilon = self.epsilon,
-                        pad_end = self.mr1_stft_params["pad_end"]
-                )
-                
                 mr2_stft_module = STFT_Module(
                         frame_length = self.mr2_stft_params["frame_length"], 
                         frame_step= self.mr2_stft_params["frame_step"], 
@@ -97,15 +83,7 @@ class Test():
                 tf_mag_spec_mix = tf.expand_dims(tf_mag_spec_mix, -1)# (Batch, Time, Freq, Channel))
                 tf_amp_spec_mix = tf.expand_dims(tf_amp_spec_mix, -1)
                 tf_f_512_mag_spec_mix = stft_module.to_F_512(tf_mag_spec_mix)
-                
-                 #mr 1mix data transform
-                tf_mr1_spec_mix = mr1_stft_module.STFT(tf_mix)
-                tf_mr1_spec_mix = tf_mr1_spec_mix[:, 1:513, :]
-                tf_mr1_amp_spec_mix = stft_module.to_amp_spec(tf_mr1_spec_mix, normalize =False)
-                tf_mr1_mag_spec_mix = tf.log(tf_mr1_amp_spec_mix + self.epsilon)
-                tf_mr1_mag_spec_mix = tf.expand_dims(tf_mr1_mag_spec_mix, -1)# (Batch, Time, Freq, Channel))
-                tf_mr1_f_256_mag_spec_mix = tf_mr1_mag_spec_mix[:, :, :256]
-                
+                               
                  #mr2 mix data transform
                 #zero pad to fit stft time length 128
                 mr2_zero_pad = tf.zeros_like(tf_mix)
@@ -117,19 +95,16 @@ class Test():
                 tf_mr2_mag_spec_mix = tf_mr2_mag_spec_mix[:, : ,:1024,:]
             
                                  
-                mr_u_net_ver4 = MRUNet_ver4(
+                mr_u_net_ver5 = MRUNet_ver5(
                         input_shape = (
                                 tf_f_512_mag_spec_mix.shape[1:]
-                        ),
-                        mr1_input_shape = (
-                               tf_mr1_f_256_mag_spec_mix.shape[1:]
                         ),
                         mr2_input_shape = (
                               tf_mr2_mag_spec_mix.shape[1:]
                         )
                 )
             
-                tf_est_masks = mr_u_net_ver4(tf_f_512_mag_spec_mix, tf_mr1_f_256_mag_spec_mix, tf_mr2_mag_spec_mix)
+                tf_est_masks = mr_u_net_ver5(tf_f_512_mag_spec_mix, tf_mr2_mag_spec_mix)
                 
                 
                 #F: 512  → 513
@@ -158,74 +133,29 @@ class Test():
                         )
                 )
                 
-                saver = tf.train.import_meta_graph('./../results/model/MRUNet_ver4/mr_u_net_ver4_1998.ckpt.meta')
+                saver = tf.train.import_meta_graph('./../results/model/MRUNet_ver5/mr_u_net_ver5_1998.ckpt.meta')
                 with tf.Session(config = config) as sess:
-                        saver.restore(sess, './../results/model/MRUNet_ver4/mr_u_net_ver4_1998.ckpt')
+                        saver.restore(sess, './../results/model/MRUNet_ver5/mr_u_net_ver5_1998.ckpt')
                         
-                        test_mixed_list = []
-                        for bass, drums, other, vocals in zip(test_bass_list, test_drums_list, test_other_list, test_vocals_list):
-                            test_mixed_list.append(AudioModule.mixing(
-                                                                                bass,
-                                                                                drums,
-                                                                                other,
-                                                                                vocals
-                                                               ))
-                        test_target_list = test_vocals_list
-                        tf.keras.backend.set_learning_phase(0)
-                        # make mix audio
-                        est_start = time.time()
-                        for mix in test_mixed_list:
-                            cutted_mix_array = provider.test_data_split_and_pad(mix, self.sample_len)                            
-                            tmp_est_data_array = np.zeros((len(cutted_mix_array), self.sample_len))
-                            for index, mix_packet in enumerate(cutted_mix_array):
-                                mix_packet = mix_packet.reshape(1,-1)
-                                est_source = sess.run(tf_est_source, feed_dict = {
-                                       tf_mix: mix_packet[:,:]
-                                    }
-                                 )
-                                tmp_est_data_array[index,:] = est_source
-                                
-                            self.est_audio_list.append(tmp_est_data_array.reshape(1,-1))
-                        est_end = time.time()
-                        print("excuted time", est_end - est_start)
-                        
-                        evaluate_start = time.time()
-                        for est, target, mix in zip(self.est_audio_list, test_target_list, test_mixed_list):
-                                target = target.reshape(1,-1)
-                                mix = mix.reshape(1,-1)
-                                
-                                est_array = np.zeros((2, target.shape[1]))
-                                est_array[0,:] = est[:, :target.shape[1]]
-                                est_array[1,:] = mix[:, :target.shape[1]] - est[:, :target.shape[1]]
+                        total_parameters = 0
+                        parameters_string = ""
 
-                                target_array = np.zeros((2, target.shape[1]))
-                                target_array[0,:] = target
-                                target_array[1,:] = mix[:, :target.shape[1]] - target
-                                
-                                sdr, sir, sar, perm =  mir_eval.separation.bss_eval_sources(target_array, est_array)
-                                self.sdr_list.append(sdr[0])
-                                self.sir_list.append(sir[0])
-                                self.sar_list.append(sar[0])
-                        print('sdr mean',np.mean(self.sdr_list))
-                        print('sir mean',np.mean(self.sir_list))
-                        print('sar mean',np.mean(self.sar_list))
-                        
-                        print('sdr median', np.median(self.sdr_list))
-                        print('sir median', np.median(self.sir_list))
-                        print('sar median', np.median(self.sar_list))
-                        
-                        evaluate_end = time.time()
-                        print('evaluate time', evaluate_end - evaluate_start)
-                return self.est_audio_list,  test_target_list, test_mixed_list, self.sdr_list, self.sir_list, self.sar_list 
-                
-                        
-                            
+                        for variable in tf.trainable_variables():
+                              shape = variable.get_shape()
+                              variable_parameters = 1
+                              for dim in shape:
+                                    variable_parameters *= dim.value
+                              total_parameters += variable_parameters
+                              if len(shape) == 1:
+                                    parameters_string += ("%s %d, " % (variable.name, variable_parameters))
+                              else:
+                                    parameters_string += ("%s %s=%d, " % (variable.name, str(shape), variable_parameters))
+
+                        print(parameters_string)
+                        print("Total %d variables, %s params" % (len(tf.trainable_variables()), "{:,}".format(total_parameters)))
 
 if __name__ == '__main__':
     test = Test()
-    est_list, target_list, mixed_list, sdr_list, sir_list, sar_list = test()
-    scipy.io.savemat("./../results/mat/u_net_pp_sdr.mat", {'u_net_pp_sdr_list':sdr_list})
-    scipy.io.savemat("./../results/mat/u_net_pp_sir.mat", {'u_net_pp_sir_list':sir_list})
-    scipy.io.savemat("./../results/mat/u_net_pp_sar.mat", {'u_net_pp_sar_list':sar_list})
+    est_list, target_list, mixed_list = test()
     file_path = './../results/audio/MRUNet/singing_voice_separation/'
 #    AudioModule.to_pickle(est_list, file_path + 'est_list')
