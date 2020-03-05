@@ -224,8 +224,8 @@ class Test():
 if __name__ == '__main__':
     test = Test()
     est_list, target_list, mixed_list, sdr_list, sir_list, sar_list = test()
-    scipy.io.savemat("./../results/mat/u_net_pp_sdr.mat", {'u_net_pp_sdr_list':sdr_list})
-    scipy.io.savemat("./../results/mat/u_net_pp_sir.mat", {'u_net_pp_sir_list':sir_list})
-    scipy.io.savemat("./../results/mat/u_net_pp_sar.mat", {'u_net_pp_sar_list':sar_list})
-    file_path = './../results/audio/MRUNet/singing_voice_separation/'
+#    scipy.io.savemat("./../results/mat/u_net_pp_sdr.mat", {'u_net_pp_sdr_list':sdr_list})
+#    scipy.io.savemat("./../results/mat/u_net_pp_sir.mat", {'u_net_pp_sir_list':sir_list})
+#    scipy.io.savemat("./../results/mat/u_net_pp_sar.mat", {'u_net_pp_sar_list':sar_list})
+    file_path = './../results/audio/MRUNet_pp/singing_voice_separation/'
 #    AudioModule.to_pickle(est_list, file_path + 'est_list')

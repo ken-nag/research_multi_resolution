@@ -19,7 +19,7 @@ def write(filename, x, fs):
         
 def to_pickle(data, file_name):
       with open(file_name,  mode='wb') as f:
-              pickle.dump(data, f, protocol=pickle.HIGEST_PROTOCOL)
+              pickle.dump(data, f)
 
 def mixing(bass_data_array, drums_data_array, other_data_array, vocals_data_array):
       return bass_data_array + drums_data_array + other_data_array + vocals_data_array
